@@ -14,7 +14,7 @@ def get_image():
     '''
         This will be the method that takes the photo 
     '''
-    test_img = 'img2.png'
+    test_img = 'img.png'
     img = PIL.Image.open(test_img)
     print('[get_image] format: {}, size: {}'.format(img.format, img.size))
 
