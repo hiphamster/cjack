@@ -3,35 +3,59 @@ import sys
 from datetime import datetime
 
 import PIL
+import PIL.ImageEnhance
 import pydub
 import pydub.playback
 import pytesseract
 import requests
 from werkzeug import urls
 
+import picamera
 
-def get_image():
+
+def take_picture(file_name):
     '''
-        This will be the method that takes the photo 
+        Capture an image
     '''
-    test_img = 'img.png'
-    img = PIL.Image.open(test_img)
-    print('[get_image] format: {}, size: {}'.format(img.format, img.size))
 
-    return img
+    # create camera object
+    c = picamera.PiCamera()
+
+    c.capture('{}.png'.format(file_name))
+
+    # destro camera object
+    c.close()
+
+    print('[take_picture] image captured, file_name: {}.png'.format(file_name))
 
 
-def ocr_image(img):
+def ocr_image(file_name):
     '''
         Extract text from an image
     '''
-    txt = pytesseract.image_to_string(img)
-    print('[orc_image] text: {}'.format(txt))
+    # load image from file
+    img = PIL.Image.open('{}.png'.format(file_name))
+
+    # crop image
+    crop = img.crop((300,300,1600,800))
+    print('[orc_image] Image cropped')
+
+    # enhance contrast
+    enhanced = PIL.ImageEnhance.Contrast(crop).enhance(1.4)
+    print('[orc_image] Image contrast enhanced')
+
+    # save enhanced image
+    enhanced.save('{}-cropped-enhanced.png'.format(file_name))
+
+    # extract text
+    txt = pytesseract.image_to_string(enhanced)
+
+    print('[orc_image] text extracted: {}'.format(txt))
 
     return txt
 
 
-def text_to_audio(txt):
+def text_to_audio(txt, file_name):
     '''
         Send text to google, and get back an mp3 file with that text pronounced
     '''
@@ -45,8 +69,8 @@ def text_to_audio(txt):
         'application/pls', 'application/x-scpls', 'application/pls+xml', '*/*'
     ]
 
-    # parameters we need to send to google, parameter 'q' will contain
-    # the text we want to be pronounced
+    # parameters we need to send to google 
+    # parameter 'q' will contain the text we want to be pronounced
     query = {'ie': 'UTF-8', 'client': 'tw-ob', 'q': txt, 'tl': 'En-us'}
 
     # the url we need to access to get text converted into audio
@@ -56,7 +80,7 @@ def text_to_audio(txt):
                    query=urls.url_encode(query),
                    fragment='')
 
-    print('[text_to_audio] url: {}'.format(url))
+    print('[text_to_audio] google url: {}'.format(url))
 
     response = requests.get(
         url,
@@ -65,48 +89,44 @@ def text_to_audio(txt):
             'User-Agent': 'mpg123/1.25.10',
             # audio types
             'Accept': ','.join(types)
-        },
-    )
+        })
 
-    print('[text_to_audio] response: {}'.format(response.status_code))
-
-    # creates a unique timestamp string, which will be used as a file name
-    audio_file_name = datetime.strftime(datetime.now(),
-                                        '%m%d%y_%H%M%S') + '.mp3'
+    print('[text_to_audio] response from google: {}'.format(response.status_code))
 
     # open a new file in binary mode, and save the audio
-    with open(audio_file_name, 'wb') as out_file:
+    with open('{}.mp3'.format(file_name), 'wb') as out_file:
         out_file.write(response.content)
 
-    return audio_file_name
+    print('[text_to_audio] audio saved as: {}.mp3'.format(file_name))
 
-
-def play_audio(aud):
+def play_audio(file_name):
 
     # verify that file exists and is a file
-    if os.path.isfile(aud):
+    if os.path.isfile('{}.mp3'.format(file_name)):
         # play the file
-        sound = pydub.AudioSegment.from_mp3(aud)
+        print('[play_audio] Playing audio file')
+        sound = pydub.AudioSegment.from_mp3('{}.mp3'.format(file_name))
         pydub.playback.play(sound)
     else:
-        print('[play_audio] {} is not a valid file'.format(aud))
+        print('[play_audio] {}.mp3 is not a valid file'.format(file_name))
 
 
 def main():
 
     print('Hello')
 
-    img = get_image()
+    # creates a unique timestamp string, which will be used as a file name
+    file_name = datetime.strftime(datetime.now(), '%m%d%y_%H%M%S')
 
-    txt = ocr_image(img)
+    take_picture(file_name)
 
-    aud = text_to_audio(txt)
+    txt = ocr_image(file_name)
 
-    play_audio(aud)
+    text_to_audio(txt, file_name)
 
+    play_audio(file_name)
+
+    print('Goodbye')
 
 if __name__ == '__main__':
     main()
-
-
-

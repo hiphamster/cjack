@@ -83,11 +83,8 @@ def home():
 
     return home_tpl.render()
 
+
 @app.route('/snap')
 def snap():
     cjack.main()
-    return redirect('/') 
-
-
-
-
+    return redirect('/')
